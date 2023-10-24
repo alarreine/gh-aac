@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -64,21 +65,30 @@ type MemberInfo struct {
 	Role  string `yaml:"role"`
 }
 
-// PermissionInfo represents permissions for a repository.
-type PermissionInfo struct {
-	Repo   string `yaml:"repo"`
-	Access string `yaml:"access"`
-	Name   string `yaml:"name"`
-	IsTeam bool   `yaml:"isTeam"`
-}
-
 // AccessConfig represents the overall structure of access-config.yaml.
 type AccessConfig struct {
 	Organization OrganizationInfo `yaml:"organization"`
 	Repositories []RepositoryInfo `yaml:"repositories"`
 	Teams        []TeamInfo       `yaml:"teams"`
 	Members      []MemberInfo     `yaml:"members"`
-	Permissions  []PermissionInfo `yaml:"permissions"`
+	Permissions  PermissionsInfo  `yaml:"permissions"`
+}
+
+type PermissionsInfo struct {
+	Teams []TeamPermission `yaml:"teams"`
+	Users []UserPermission `yaml:"users"`
+}
+
+type TeamPermission struct {
+	Repo   string `yaml:"repo"`
+	Access string `yaml:"access"`
+	Slug   string `yaml:"slug"`
+}
+
+type UserPermission struct {
+	Repo   string `yaml:"repo"`
+	Access string `yaml:"access"`
+	Login  string `yaml:"login"`
 }
 
 var (
@@ -173,7 +183,7 @@ func exportConfig() {
 		accessConfig.Teams = teamInfo
 		accessConfig.Members = memberInfo
 
-		permissionInfo, err := getPermissions(ctx, client, allowedOrg, teamInfo, &repoInfo)
+		permissionInfo, err := getPermissions(ctx, client, allowedOrg, teamInfo)
 		if err != nil {
 			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
 			continue
@@ -182,7 +192,7 @@ func exportConfig() {
 		orgProgress.Add(1)
 	}
 
-	err := SaveConfig("access-config.yaml", &accessConfig)
+	err := SaveConfig("access-config", &accessConfig)
 	if err != nil {
 		log.Fatalf("Failed to save config: %v", err)
 	}
@@ -453,10 +463,15 @@ func getMembers(ctx context.Context, client *githubv4.Client, organization strin
 	return allMembers, nil
 }
 
-func getPermissions(ctx context.Context, client *githubv4.Client, organization string, teams []TeamInfo, repos *[]RepositoryInfo) ([]PermissionInfo, error) {
-	var allPermissions []PermissionInfo
-	var repoCursor *githubv4.String
-	var collabCursor *githubv4.String
+func getPermissions(ctx context.Context, client *githubv4.Client, organization string, teams []TeamInfo) (PermissionsInfo, error) {
+	var (
+		teamPermissions []TeamPermission
+		userPermissions []UserPermission
+	)
+	var (
+		repoCursor   *githubv4.String
+		collabCursor *githubv4.String
+	)
 
 TeamPermissions:
 	for _, slug := range teams {
@@ -487,18 +502,17 @@ TeamPermissions:
 
 		err := client.Query(ctx, &query, variables)
 		if err != nil {
-			return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
+			return PermissionsInfo{}, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
 
 		for i, permission := range query.Organization.Team.Repositories.Nodes {
-			teamPermissionInfo := PermissionInfo{
+			teamPermissionInfo := TeamPermission{
 				Repo:   string(permission.Name),
 				Access: string(query.Organization.Team.Repositories.Edges[i].Permission),
-				IsTeam: true,
-				Name:   slug.Name,
+				Slug:   slug.Name,
 			}
 
-			allPermissions = append(allPermissions, teamPermissionInfo)
+			teamPermissions = append(teamPermissions, teamPermissionInfo)
 		}
 
 		if !query.Organization.Team.Repositories.PageInfo.HasNextPage {
@@ -546,7 +560,7 @@ RepoPermissions:
 
 		err := client.Query(ctx, &query, variables)
 		if err != nil {
-			return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
+			return PermissionsInfo{}, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
 
 		for _, repo := range query.Organization.Repositories.Edges {
@@ -555,14 +569,13 @@ RepoPermissions:
 			for {
 				for _, member := range repo.Node.Collaborators.Edges {
 
-					teamPermissionInfo := PermissionInfo{
+					userPermissionInfo := UserPermission{
 						Repo:   string(repo.Node.Name),
 						Access: string(member.Permission),
-						IsTeam: false,
-						Name:   string(member.Node.Login),
+						Login:  string(member.Node.Login),
 					}
 
-					allPermissions = append(allPermissions, teamPermissionInfo)
+					userPermissions = append(userPermissions, userPermissionInfo)
 				}
 
 				if !repo.Node.Collaborators.PageInfo.HasNextPage {
@@ -578,7 +591,7 @@ RepoPermissions:
 
 				err := client.Query(ctx, &query, variables)
 				if err != nil {
-					return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
+					return PermissionsInfo{}, fmt.Errorf("error ejecutando la consulta: %v", err)
 				}
 
 			}
@@ -592,7 +605,7 @@ RepoPermissions:
 		collabCursor = nil
 	}
 
-	return allPermissions, nil
+	return PermissionsInfo{Teams: teamPermissions, Users: userPermissions}, nil
 }
 
 // LoadConfig loads the configuration from a YAML file.
@@ -611,9 +624,23 @@ func LoadConfig(filename string) (*AccessConfig, error) {
 
 // SaveConfig saves the configuration to a YAML file.
 func SaveConfig(filename string, config *AccessConfig) error {
-	data, err := yaml.Marshal(config)
-	if err != nil {
-		return err
+
+	var asJson bool = true
+	var data []byte
+	var err error
+
+	if asJson {
+		filename = filename + ".json"
+		data, err = json.MarshalIndent(config, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error al convertir a JSON: %w", err)
+		}
+	} else {
+		filename = filename + ".yaml"
+		data, err = yaml.Marshal(config)
+		if err != nil {
+			return err
+		}
 	}
 	err = ioutil.WriteFile(filename, data, 0644)
 	if err != nil {
