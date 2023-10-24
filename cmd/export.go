@@ -395,6 +395,8 @@ TeamLoop:
 		}
 
 		teamCursor = &query.Organization.Teams.PageInfo.EndCursor
+		memberCursor = nil
+		childTeamCursor = nil
 	}
 
 	return allTeams, nil
@@ -515,7 +517,7 @@ RepoPermissions:
 					Edges []struct {
 						Node struct {
 							Name          githubv4.String
-							Collaborators []struct {
+							Collaborators struct {
 								Edges []struct {
 									Node struct {
 										Login githubv4.String
@@ -549,16 +551,35 @@ RepoPermissions:
 
 		for _, repo := range query.Organization.Repositories.Edges {
 
-			// teamPermissionInfo := PermissionInfo{
-			// 	Repo:   string(permission.Name),
-			// 	Access: string(query.Organization.Team.Repositories.Edges[i].Permission),
-			// 	IsTeam: true,
-			// 	Name:   slug.Name,
-			// }
-
-			// allPermissions = append(allPermissions, teamPermissionInfo)
 		RepoMemberLoop:
 			for {
+				for _, member := range repo.Node.Collaborators.Edges {
+
+					teamPermissionInfo := PermissionInfo{
+						Repo:   string(repo.Node.Name),
+						Access: string(member.Permission),
+						IsTeam: false,
+						Name:   string(member.Node.Login),
+					}
+
+					allPermissions = append(allPermissions, teamPermissionInfo)
+				}
+
+				if !repo.Node.Collaborators.PageInfo.HasNextPage {
+					break RepoMemberLoop
+				}
+				collabCursor = &repo.Node.Collaborators.PageInfo.EndCursor
+
+				variables := map[string]interface{}{
+					"org":          githubv4.String(organization),
+					"repoCursor":   repoCursor,
+					"collabCursor": collabCursor,
+				}
+
+				err := client.Query(ctx, &query, variables)
+				if err != nil {
+					return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
+				}
 
 			}
 		}
@@ -568,6 +589,7 @@ RepoPermissions:
 		}
 
 		repoCursor = &query.Organization.Repositories.PageInfo.EndCursor
+		collabCursor = nil
 	}
 
 	return allPermissions, nil
