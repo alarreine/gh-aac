@@ -92,10 +92,12 @@ type UserPermission struct {
 }
 
 var (
-	allowedOrgs []string
-	org         *string
-	aacPath     *string
+	org          *string
+	aacPath      *string
+	outputFormat *string
 )
+
+var allowedOrgs []string
 
 // exportCmd represents the export command
 var exportCmd = &cobra.Command{
@@ -132,7 +134,9 @@ var exportCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(exportCmd)
 	org = exportCmd.Flags().StringP("org", "o", "", "Name of the GitHub organization")
-	aacPath = exportCmd.Flags().StringP("file", "f", "access-config.yaml", "Path to the output YAML file")
+	aacPath = exportCmd.Flags().StringP("path", "p", "access-config.yaml", "Path to the output YAML file")
+
+	outputFormat = exportCmd.Flags().StringP("format", "f", "yaml", "Format of access-config. By default yaml. Option json yaml")
 
 	exportCmd.MarkFlagFilename("file", "yaml")
 
@@ -625,11 +629,10 @@ func LoadConfig(filename string) (*AccessConfig, error) {
 // SaveConfig saves the configuration to a YAML file.
 func SaveConfig(filename string, config *AccessConfig) error {
 
-	var asJson bool = true
 	var data []byte
 	var err error
 
-	if asJson {
+	if *outputFormat == "json" {
 		filename = filename + ".json"
 		data, err = json.MarshalIndent(config, "", "  ")
 		if err != nil {
