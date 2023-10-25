@@ -36,61 +36,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// OrganizationInfo represents basic information about an organization.
-type OrganizationInfo struct {
-	ID          string `yaml:"id"`
-	Name        string `yaml:"name"`
-	Login       string `yaml:"login"`
-	Description string `yaml:"description"`
-	URL         string `yaml:"url"`
-}
-
-// RepositoryInfo represents basic information about a repository.
-type RepositoryInfo struct {
-	Name string `yaml:"name"`
-	URL  string `yaml:"url"`
-}
-
-// TeamInfo represents basic information about a team.
-type TeamInfo struct {
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description"`
-	Members     []string `yaml:"members"`
-	ChildTeams  []string `yaml:"childTeam"`
-}
-
-// MemberInfo represents basic information about a member.
-type MemberInfo struct {
-	Login string `yaml:"login"`
-	Role  string `yaml:"role"`
-}
-
-// AccessConfig represents the overall structure of access-config.yaml.
-type AccessConfig struct {
-	Organization OrganizationInfo `yaml:"organization"`
-	Repositories []RepositoryInfo `yaml:"repositories"`
-	Teams        []TeamInfo       `yaml:"teams"`
-	Members      []MemberInfo     `yaml:"members"`
-	Permissions  PermissionsInfo  `yaml:"permissions"`
-}
-
-type PermissionsInfo struct {
-	Teams []TeamPermission `yaml:"teams"`
-	Users []UserPermission `yaml:"users"`
-}
-
-type TeamPermission struct {
-	Repo   string `yaml:"repo"`
-	Access string `yaml:"access"`
-	Slug   string `yaml:"slug"`
-}
-
-type UserPermission struct {
-	Repo   string `yaml:"repo"`
-	Access string `yaml:"access"`
-	Login  string `yaml:"login"`
-}
-
 var (
 	org          *string
 	aacPath      *string
@@ -205,15 +150,7 @@ func exportConfig() {
 }
 
 func getOrganizationInfo(ctx context.Context, client *githubv4.Client, organization string) (OrganizationInfo, error) {
-	var query struct {
-		Organization struct {
-			ID          githubv4.String
-			Name        githubv4.String
-			Login       githubv4.String
-			Description githubv4.String
-			Url         githubv4.String
-		} `graphql:"organization(login: $org)"`
-	}
+	var query OrganizationQuery
 
 	// Definir las variables para la consulta
 	variables := map[string]interface{}{
@@ -241,22 +178,7 @@ func getRepos(ctx context.Context, client *githubv4.Client, organization string)
 	var afterCursor *githubv4.String
 
 	for {
-		var query struct {
-			Organization struct {
-				Repositories struct {
-					Edges []struct {
-						Node struct {
-							Name githubv4.String
-							URL  githubv4.String
-						}
-					}
-					PageInfo struct {
-						EndCursor   githubv4.String
-						HasNextPage bool
-					}
-				} `graphql:"repositories(first: 100, after: $afterCursor)"`
-			} `graphql:"organization(login: $org)"`
-		}
+		var query RepoQuery
 
 		variables := map[string]interface{}{
 			"org":         githubv4.String(organization),
@@ -294,44 +216,7 @@ func getTeams(ctx context.Context, client *githubv4.Client, organization string)
 
 TeamLoop:
 	for {
-		var query struct {
-			Organization struct {
-				Teams struct {
-					Edges []struct {
-						Node struct {
-							Name        githubv4.String
-							Description githubv4.String
-							Members     struct {
-								Edges []struct {
-									Node struct {
-										Login githubv4.String
-									}
-								}
-								PageInfo struct {
-									EndCursor   githubv4.String
-									HasNextPage bool
-								}
-							} `graphql:"members(first: 100, after: $memberCursor)"`
-							ChildTeams struct {
-								Edges []struct {
-									Node struct {
-										Name githubv4.String
-									}
-								}
-								PageInfo struct {
-									EndCursor   githubv4.String
-									HasNextPage bool
-								}
-							} `graphql:"childTeams(first: 100, after: $childTeamCursor)"`
-						}
-					}
-					PageInfo struct {
-						EndCursor   githubv4.String
-						HasNextPage bool
-					}
-				} `graphql:"teams(first: 100, after: $teamCursor)"`
-			} `graphql:"organization(login: $org)"`
-		}
+		var query TeamQuery
 
 		variables := map[string]interface{}{
 			"org":             githubv4.String(organization),
@@ -421,22 +306,7 @@ func getMembers(ctx context.Context, client *githubv4.Client, organization strin
 	var afterCursor *githubv4.String
 
 	for {
-		var query struct {
-			Organization struct {
-				MembersWithRole struct {
-					Edges []struct {
-						Role githubv4.String
-						Node struct {
-							Login githubv4.String
-						}
-					}
-					PageInfo struct {
-						EndCursor   githubv4.String
-						HasNextPage bool
-					}
-				} `graphql:"membersWithRole(first: 100, after: $afterCursor)"`
-			} `graphql:"organization(login: $org)"`
-		}
+		var query MemberQuery
 
 		variables := map[string]interface{}{
 			"org":         githubv4.String(organization),
@@ -480,24 +350,8 @@ func getPermissions(ctx context.Context, client *githubv4.Client, organization s
 TeamPermissions:
 	for _, slug := range teams {
 
-		var query struct {
-			Organization struct {
-				Team struct {
-					Repositories struct {
-						Nodes []struct {
-							Name githubv4.String
-						}
-						Edges []struct {
-							Permission githubv4.String
-						}
-						PageInfo struct {
-							EndCursor   githubv4.String
-							HasNextPage bool
-						}
-					} `graphql:"repositories(first: 100, after: $repoCursor)"`
-				} `graphql:"team(slug: $slug)"`
-			} `graphql:"organization(login: $org)"`
-		}
+		var query TeamPermissionQuery
+
 		variables := map[string]interface{}{
 			"org":        githubv4.String(organization),
 			"repoCursor": repoCursor,
@@ -529,33 +383,7 @@ TeamPermissions:
 RepoPermissions:
 	for {
 
-		var query struct {
-			Organization struct {
-				Repositories struct {
-					Edges []struct {
-						Node struct {
-							Name          githubv4.String
-							Collaborators struct {
-								Edges []struct {
-									Node struct {
-										Login githubv4.String
-									}
-									Permission githubv4.String
-								}
-								PageInfo struct {
-									EndCursor   githubv4.String
-									HasNextPage bool
-								}
-							} `graphql:"collaborators(first: 100, after: $collabCursor)"`
-						}
-					}
-					PageInfo struct {
-						EndCursor   githubv4.String
-						HasNextPage bool
-					}
-				} `graphql:"repositories(first: 100, after: $repoCursor)"`
-			} `graphql:"organization(login: $org)"`
-		}
+		var query RepoPermissionQuery
 		variables := map[string]interface{}{
 			"org":          githubv4.String(organization),
 			"repoCursor":   repoCursor,
