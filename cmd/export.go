@@ -83,7 +83,7 @@ func init() {
 
 	outputFormat = exportCmd.Flags().StringP("format", "f", "yaml", "Format of access-config. By default yaml. Option json yaml")
 
-	exportCmd.MarkFlagFilename("file", "yaml")
+	exportCmd.MarkFlagFilename("path", "yaml")
 
 }
 

@@ -52,20 +52,6 @@ type MemberInfo struct {
 	Role  string `yaml:"role,omitempty"`
 }
 
-// AccessConfig represents the overall structure of access-config.yaml.
-type AccessConfig struct {
-	Organization OrganizationInfo `yaml:"organization,omitempty"`
-	Repositories []RepositoryInfo `yaml:"repositories,omitempty"`
-	Teams        []TeamInfo       `yaml:"teams,omitempty"`
-	Members      []MemberInfo     `yaml:"members,omitempty"`
-	Permissions  PermissionsInfo  `yaml:"permissions,omitempty"`
-}
-
-type PermissionsInfo struct {
-	Teams []TeamPermission `yaml:"teams,omitempty"`
-	Users []UserPermission `yaml:"users,omitempty"`
-}
-
 type TeamPermission struct {
 	Repo   string `yaml:"repo,omitempty"`
 	Access string `yaml:"access,omitempty"`
@@ -76,6 +62,20 @@ type UserPermission struct {
 	Repo   string `yaml:"repo,omitempty"`
 	Access string `yaml:"access,omitempty"`
 	Login  string `yaml:"login,omitempty"`
+}
+
+type PermissionsInfo struct {
+	Teams []TeamPermission `yaml:"teams,omitempty"`
+	Users []UserPermission `yaml:"users,omitempty"`
+}
+
+// AccessConfig represents the overall structure of access-config.yaml.
+type AccessConfig struct {
+	Organization OrganizationInfo `yaml:"organization,omitempty"`
+	Repositories []RepositoryInfo `yaml:"repositories,omitempty"`
+	Teams        []TeamInfo       `yaml:"teams,omitempty"`
+	Members      []MemberInfo     `yaml:"members,omitempty"`
+	Permissions  PermissionsInfo  `yaml:"permissions,omitempty"`
 }
 
 type OrganizationQuery struct {
