@@ -25,8 +25,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/shurcooL/githubv4"
@@ -42,34 +42,19 @@ var (
 	outputFormat *string
 )
 
-var allowedOrgs []string
+var organizationsList []string
 
 // exportCmd represents the export command
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export the current access configuration from GitHub",
 	Run: func(cmd *cobra.Command, args []string) {
-		allowedOrgs = viper.GetStringSlice("organizations")
 
 		if *org != "" {
-			// Check if the specified organization is allowed
-			allowed := false
-			for _, allowedOrg := range allowedOrgs {
-				if *org == allowedOrg {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				log.Panic("The specified organization is not allowed.")
-			} else {
-				allowedOrgs = nil
-				allowedOrgs = append(allowedOrgs, *org)
-			}
-
+			organizationsList = append(organizationsList, *org)
 		} else {
-			// Export all allowed organizations
-			log.Printf("Exporting configurations for all allowed organizations:")
+			log.Printf("Exporting organizations listed on :" + viper.GetViper().ConfigFileUsed())
+			organizationsList = viper.GetStringSlice("organizations")
 
 		}
 		exportConfig()
@@ -93,17 +78,17 @@ func exportConfig() {
 		accessConfig AccessConfig
 	)
 
-	orgProgress := progressbar.Default(int64(len(allowedOrgs)), "Starting..")
+	orgProgress := progressbar.Default(int64(len(organizationsList)), "Starting..")
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: viper.GetString("token")},
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
-	// client := githubv4.NewEnterpriseClient("viper.", httpClient)
+
 	client := githubv4.NewClient(httpClient)
 
 	ctx := context.Background()
 
-	for _, allowedOrg := range allowedOrgs {
+	for _, allowedOrg := range organizationsList {
 		orgInfo, err := getOrganizationInfo(ctx, client, allowedOrg)
 		if err != nil {
 			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
@@ -442,7 +427,7 @@ RepoPermissions:
 
 // LoadConfig loads the configuration from a YAML file.
 func LoadConfig(filename string) (*AccessConfig, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +439,6 @@ func LoadConfig(filename string) (*AccessConfig, error) {
 	return &config, nil
 }
 
-// SaveConfig saves the configuration to a YAML file.
 func SaveConfig(filename string, config *AccessConfig) error {
 
 	var data []byte
@@ -473,7 +457,7 @@ func SaveConfig(filename string, config *AccessConfig) error {
 			return err
 		}
 	}
-	err = ioutil.WriteFile(filename, data, 0644)
+	err = os.WriteFile(filename, data, 0644)
 	if err != nil {
 		return err
 	}

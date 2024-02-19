@@ -30,7 +30,7 @@ import (
 )
 
 var cfgFile string
-var isServer *bool
+var serverEndpoint *bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -60,7 +60,13 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gh-aac.yaml)")
-	isServer = rootCmd.PersistentFlags().Bool("onpremise", false, "Use server when your a using a on premise service")
+
+	rootCmd.Flags().StringP("url", "u", "github.com", "Use this flag to define the url to use")
+	viper.BindPFlag("url", rootCmd.Flags().Lookup("url"))
+
+	rootCmd.Flags().StringP("organization", "o", "", "Use this flag to define the organization to use")
+	viper.BindPFlag("organization", rootCmd.Flags().Lookup("organization"))
+
 }
 
 // initConfig reads in config file and ENV variables if set.
