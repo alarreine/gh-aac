@@ -36,49 +36,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	org          *string
-	aacPath      *string
-	outputFormat *string
-)
-
-var organizationsList []string
-
 // exportCmd represents the export command
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export the current access configuration from GitHub",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if *org != "" {
-			organizationsList = append(organizationsList, *org)
-		} else {
-			log.Printf("Exporting organizations listed on :" + viper.GetViper().ConfigFileUsed())
-			organizationsList = viper.GetStringSlice("organizations")
-
-		}
-		exportConfig()
+		exportConfig(organizationList)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(exportCmd)
-	org = exportCmd.Flags().StringP("org", "o", "", "Name of the GitHub organization")
-	aacPath = exportCmd.Flags().StringP("path", "p", "access-config.yaml", "Path to the output YAML file")
-
-	outputFormat = exportCmd.Flags().StringP("format", "f", "yaml", "Format of access-config. By default yaml. Option json yaml")
-
-	exportCmd.MarkFlagFilename("path", "yaml")
 
 }
 
-func exportConfig() {
+func exportConfig(organizations []string) {
 
 	var (
 		accessConfig AccessConfig
 	)
 
-	orgProgress := progressbar.Default(int64(len(organizationsList)), "Starting..")
+	orgProgress := progressbar.Default(int64(len(organizations)), "Starting..")
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: viper.GetString("token")},
 	)
@@ -88,7 +67,7 @@ func exportConfig() {
 
 	ctx := context.Background()
 
-	for _, allowedOrg := range organizationsList {
+	for _, allowedOrg := range organizations {
 		orgInfo, err := getOrganizationInfo(ctx, client, allowedOrg)
 		if err != nil {
 			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
@@ -131,7 +110,7 @@ func exportConfig() {
 		log.Fatalf("Failed to save config: %v", err)
 	}
 
-	fmt.Println("Access configuration exported successfully to", *aacPath)
+	fmt.Println("Access configuration exported successfully to", aacFilePath)
 }
 
 func getOrganizationInfo(ctx context.Context, client *githubv4.Client, organization string) (OrganizationInfo, error) {
@@ -444,7 +423,7 @@ func SaveConfig(filename string, config *AccessConfig) error {
 	var data []byte
 	var err error
 
-	if *outputFormat == "json" {
+	if aacFormatType == "json" {
 		filename = filename + ".json"
 		data, err = json.MarshalIndent(config, "", "  ")
 		if err != nil {

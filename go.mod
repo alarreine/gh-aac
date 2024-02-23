@@ -1,6 +1,6 @@
 module gh-aac
 
-go 1.21.3
+go 1.23
 
 require (
 	github.com/schollz/progressbar/v3 v3.13.1
