@@ -23,14 +23,24 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
-var isServer *bool
+var (
+	URLGRAPHQL       string
+	URLREST          string
+	organizationList []string
+	aacFormatType    string
+	aacFilePath      string
+	endpoint         string
+	org              string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -60,7 +70,23 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gh-aac.yaml)")
-	isServer = rootCmd.PersistentFlags().Bool("onpremise", false, "Use server when your a using a on premise service")
+
+	rootCmd.PersistentFlags().StringVarP(&endpoint, "endpoint", "e", "", "XW NO SALEEE.")
+	viper.BindPFlag("endpoint", rootCmd.PersistentFlags().Lookup("endpoint"))
+
+	rootCmd.PersistentFlags().StringVarP(&org, "organization", "o", "", "Slug organization name. By default from conf file.")
+	viper.BindPFlag("organization", rootCmd.PersistentFlags().Lookup("organization"))
+
+	rootCmd.PersistentFlags().StringVarP(&aacFormatType, "aac-format", "f", "", "It defines the format of the access as code (aac) output file. By default is YAML. It can be YAML or JSON.")
+	viper.BindPFlag("aac-format", rootCmd.PersistentFlags().Lookup("aac-format"))
+	viper.SetDefault("aac-format", "yaml")
+
+	rootCmd.PersistentFlags().StringVarP(&aacFilePath, "aac-path", "p", "", "Path to the output YAML file")
+	viper.BindPFlag("aac-path", rootCmd.PersistentFlags().Lookup("aac-path"))
+	viper.SetDefault("aac-path", "access-config.yaml")
+
+	rootCmd.MarkFlagFilename("aac-path", "yaml")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -85,4 +111,24 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+
+	if viper.GetString("endpoint") == "" {
+		// By default http://github.com
+		viper.Set("endpoint", "https://github.com")
+
+		URLGRAPHQL = "https://api.github.com/graphql"
+		URLREST = "https://api.github.com"
+	} else {
+		URLREST = fmt.Sprintf("%s/api/v3", viper.GetString("endpoint"))
+		URLGRAPHQL = fmt.Sprintf("https://api.%s/graphql", strings.Replace(viper.GetString("endpoint"), "https://", "", 1))
+	}
+
+	if viper.GetString("organization") != "" {
+		organizationList = append(organizationList, viper.GetString("organization"))
+	} else {
+		organizationList = viper.GetStringSlice("organizations")
+	}
+
+	// print endpoint
+	log.Printf("Endpoint: %s", viper.GetString("endpoint"))
 }

@@ -25,8 +25,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/shurcooL/githubv4"
@@ -36,74 +36,38 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	org          *string
-	aacPath      *string
-	outputFormat *string
-)
-
-var allowedOrgs []string
-
 // exportCmd represents the export command
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export the current access configuration from GitHub",
 	Run: func(cmd *cobra.Command, args []string) {
-		allowedOrgs = viper.GetStringSlice("organizations")
 
-		if *org != "" {
-			// Check if the specified organization is allowed
-			allowed := false
-			for _, allowedOrg := range allowedOrgs {
-				if *org == allowedOrg {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				log.Panic("The specified organization is not allowed.")
-			} else {
-				allowedOrgs = nil
-				allowedOrgs = append(allowedOrgs, *org)
-			}
-
-		} else {
-			// Export all allowed organizations
-			log.Printf("Exporting configurations for all allowed organizations:")
-
-		}
-		exportConfig()
+		exportConfig(organizationList)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(exportCmd)
-	org = exportCmd.Flags().StringP("org", "o", "", "Name of the GitHub organization")
-	aacPath = exportCmd.Flags().StringP("path", "p", "access-config.yaml", "Path to the output YAML file")
-
-	outputFormat = exportCmd.Flags().StringP("format", "f", "yaml", "Format of access-config. By default yaml. Option json yaml")
-
-	exportCmd.MarkFlagFilename("path", "yaml")
 
 }
 
-func exportConfig() {
+func exportConfig(organizations []string) {
 
 	var (
 		accessConfig AccessConfig
 	)
 
-	orgProgress := progressbar.Default(int64(len(allowedOrgs)), "Starting..")
+	orgProgress := progressbar.Default(int64(len(organizations)), "Starting..")
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: viper.GetString("token")},
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
-	// client := githubv4.NewEnterpriseClient("viper.", httpClient)
-	client := githubv4.NewClient(httpClient)
+
+	client := githubv4.NewEnterpriseClient(URLGRAPHQL, httpClient)
 
 	ctx := context.Background()
 
-	for _, allowedOrg := range allowedOrgs {
+	for _, allowedOrg := range organizations {
 		orgInfo, err := getOrganizationInfo(ctx, client, allowedOrg)
 		if err != nil {
 			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
@@ -146,7 +110,7 @@ func exportConfig() {
 		log.Fatalf("Failed to save config: %v", err)
 	}
 
-	fmt.Println("Access configuration exported successfully to", *aacPath)
+	fmt.Println("Access configuration exported successfully to", aacFilePath)
 }
 
 func getOrganizationInfo(ctx context.Context, client *githubv4.Client, organization string) (OrganizationInfo, error) {
@@ -442,7 +406,7 @@ RepoPermissions:
 
 // LoadConfig loads the configuration from a YAML file.
 func LoadConfig(filename string) (*AccessConfig, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -454,13 +418,12 @@ func LoadConfig(filename string) (*AccessConfig, error) {
 	return &config, nil
 }
 
-// SaveConfig saves the configuration to a YAML file.
 func SaveConfig(filename string, config *AccessConfig) error {
 
 	var data []byte
 	var err error
 
-	if *outputFormat == "json" {
+	if aacFormatType == "json" {
 		filename = filename + ".json"
 		data, err = json.MarshalIndent(config, "", "  ")
 		if err != nil {
@@ -473,7 +436,7 @@ func SaveConfig(filename string, config *AccessConfig) error {
 			return err
 		}
 	}
-	err = ioutil.WriteFile(filename, data, 0644)
+	err = os.WriteFile(filename, data, 0644)
 	if err != nil {
 		return err
 	}
