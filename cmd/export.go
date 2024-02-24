@@ -67,27 +67,27 @@ func exportConfig(organizations []string) {
 
 	ctx := context.Background()
 
-	for _, allowedOrg := range organizations {
-		orgInfo, err := getOrganizationInfo(ctx, client, allowedOrg)
+	for _, org := range organizations {
+		orgInfo, err := getOrganizationInfo(ctx, client, org)
 		if err != nil {
-			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
+			log.Printf("Failed to get organization info for %s: %v\n", org, err)
 			continue // Continúa con la siguiente organización si hay un error
 		}
 
-		repoInfo, err := getRepos(ctx, client, allowedOrg)
+		repoInfo, err := getRepos(ctx, client, org)
 		if err != nil {
-			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
+			log.Printf("Failed to get organization info for %s: %v\n", org, err)
 			continue // Continúa con la siguiente organización si hay un error
 		}
 
-		teamInfo, err := getTeams(ctx, client, allowedOrg)
+		teamInfo, err := getTeams(ctx, client, org)
 		if err != nil {
-			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
+			log.Printf("Failed to get organization info for %s: %v\n", org, err)
 			continue // Continúa con la siguiente organización si hay un error
 		}
-		memberInfo, err := getMembers(ctx, client, allowedOrg)
+		memberInfo, err := getMembers(ctx, client, org)
 		if err != nil {
-			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
+			log.Printf("Failed to get organization info for %s: %v\n", org, err)
 			continue // Continúa con la siguiente organización si hay un error
 		}
 
@@ -96,9 +96,9 @@ func exportConfig(organizations []string) {
 		accessConfig.Teams = teamInfo
 		accessConfig.Members = memberInfo
 
-		permissionInfo, err := getPermissions(ctx, client, allowedOrg, teamInfo)
+		permissionInfo, err := getPermissions(ctx, client, org, teamInfo)
 		if err != nil {
-			log.Printf("Failed to get organization info for %s: %v\n", allowedOrg, err)
+			log.Printf("Failed to get organization info for %s: %v\n", org, err)
 			continue
 		}
 		accessConfig.Permissions = permissionInfo
