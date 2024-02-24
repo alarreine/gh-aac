@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -37,6 +38,8 @@ var (
 	organizationList []string
 	aacFormatType    string
 	aacFilePath      string
+	endpoint         string
+	org              string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -68,12 +71,11 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gh-aac.yaml)")
 
-	rootCmd.PersistentFlags().StringP("endpoint", "e", "", "Use this flag to define the endpoint to use. By default is https://github.com")
-	viper.SetDefault("url", "https://github.com")
-	viper.BindPFlag("endpoint", rootCmd.Flags().Lookup("endpoint"))
+	rootCmd.PersistentFlags().StringVarP(&endpoint, "endpoint", "e", "", "XW NO SALEEE.")
+	viper.BindPFlag("endpoint", rootCmd.PersistentFlags().Lookup("endpoint"))
 
-	rootCmd.PersistentFlags().StringP("organization", "o", "", "Use this flag to define the organization to use")
-	viper.BindPFlag("organization", rootCmd.Flags().Lookup("organization"))
+	rootCmd.PersistentFlags().StringVarP(&org, "organization", "o", "", "Slug organization name. By default from conf file.")
+	viper.BindPFlag("organization", rootCmd.PersistentFlags().Lookup("organization"))
 
 	rootCmd.PersistentFlags().StringVarP(&aacFormatType, "aac-format", "f", "", "It defines the format of the access as code (aac) output file. By default is YAML. It can be YAML or JSON.")
 	viper.BindPFlag("aac-format", rootCmd.PersistentFlags().Lookup("aac-format"))
@@ -110,7 +112,10 @@ func initConfig() {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
 
-	if viper.GetString("endpoint") == "http://github.com" {
+	if viper.GetString("endpoint") == "" {
+		// By default http://github.com
+		viper.Set("endpoint", "https://github.com")
+
 		URLGRAPHQL = "https://api.github.com/graphql"
 		URLREST = "https://api.github.com"
 	} else {
@@ -124,4 +129,6 @@ func initConfig() {
 		organizationList = viper.GetStringSlice("organizations")
 	}
 
+	// print endpoint
+	log.Printf("Endpoint: %s", viper.GetString("endpoint"))
 }

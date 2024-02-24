@@ -63,7 +63,7 @@ func exportConfig(organizations []string) {
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
 
-	client := githubv4.NewClient(httpClient)
+	client := githubv4.NewEnterpriseClient(URLGRAPHQL, httpClient)
 
 	ctx := context.Background()
 
