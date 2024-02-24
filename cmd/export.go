@@ -36,6 +36,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const fileNamePattern string = "access-config-%s.%s"
+
 // exportCmd represents the export command
 var exportCmd = &cobra.Command{
 	Use:   "export",
@@ -103,11 +105,11 @@ func exportConfig(organizations []string) {
 		}
 		accessConfig.Permissions = permissionInfo
 		orgProgress.Add(1)
-	}
 
-	err := SaveConfig("access-config", &accessConfig)
-	if err != nil {
-		log.Fatalf("Failed to save config: %v", err)
+		err = SaveConfig(&accessConfig)
+		if err != nil {
+			log.Fatalf("Failed to save config: %v", err)
+		}
 	}
 
 	fmt.Println("Access configuration exported successfully to", aacFilePath)
@@ -418,25 +420,29 @@ func LoadConfig(filename string) (*AccessConfig, error) {
 	return &config, nil
 }
 
-func SaveConfig(filename string, config *AccessConfig) error {
+func SaveConfig(config *AccessConfig) error {
 
 	var data []byte
 	var err error
 
-	if aacFormatType == "json" {
-		filename = filename + ".json"
+	fileName := fmt.Sprintf(fileNamePattern, config.Organization.Name, viper.GetString("aac-format"))
+
+	switch viper.GetString("aac-format") {
+	case "json":
 		data, err = json.MarshalIndent(config, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error al convertir a JSON: %w", err)
 		}
-	} else {
-		filename = filename + ".yaml"
+	case "yaml":
 		data, err = yaml.Marshal(config)
 		if err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("unsuported format: %s", viper.GetString("aac-format"))
 	}
-	err = os.WriteFile(filename, data, 0644)
+
+	err = os.WriteFile(fileName, data, 0644)
 	if err != nil {
 		return err
 	}
