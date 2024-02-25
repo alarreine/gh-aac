@@ -25,63 +25,67 @@ import "github.com/shurcooL/githubv4"
 
 // OrganizationInfo represents basic information about an organization.
 type OrganizationInfo struct {
-	ID          string `yaml:"id,omitempty"`
-	Name        string `yaml:"name,omitempty"`
-	Login       string `yaml:"login,omitempty"`
-	Description string `yaml:"description,omitempty"`
-	URL         string `yaml:"url,omitempty"`
+	ID          string `yaml:"id"`
+	Name        string `yaml:"name"`
+	Login       string `yaml:"login"`
+	Description string `yaml:"description"`
+	URL         string `yaml:"url"`
 }
 
 // RepositoryInfo represents basic information about a repository.
 type RepositoryInfo struct {
-	DatabaseID int    `yaml:"id,omitempty"`
-	Name       string `yaml:"name,omitempty"`
-	URL        string `yaml:"url,omitempty"`
-	Visibility string `yaml:"visibility,omitempty"`
+	Name       string `yaml:"name"`
+	URL        string `yaml:"url"`
+	Visibility string `yaml:"visibility"`
 }
 
 // TeamInfo represents basic information about a team.
 type TeamInfo struct {
-	Name        string   `yaml:"name,omitempty"`
-	Description string   `yaml:"description,omitempty"`
-	Members     []string `yaml:"members,omitempty"`
-	ChildTeams  []string `yaml:"childTeam,omitempty"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	Members     []string `yaml:"members"`
+	ChildTeams  []string `yaml:"childTeam"`
 }
 
 // MemberInfo represents basic information about a member.
 type MemberInfo struct {
-	Login string `yaml:"login,omitempty"`
-	Role  string `yaml:"role,omitempty"`
+	Login string `yaml:"login"`
+	Role  string `yaml:"role"`
 }
 
-type TeamPermission struct {
-	Repo   string `yaml:"repo,omitempty"`
-	Access string `yaml:"access,omitempty"`
-	Slug   string `yaml:"slug,omitempty"`
+// type TeamPermission struct {
+// 	// Repo   string `yaml:"repo"`
+// 	Slug   string `yaml:"slug"`
+// 	Access string `yaml:"access"`
+// }
+
+type AccessPermission struct {
+	// Repo   string `yaml:"repo"`
+	Member string `yaml:"member"`
+	Access string `yaml:"access"`
 }
 
-type UserPermission struct {
-	Repo   string `yaml:"repo,omitempty"`
-	Access string `yaml:"access,omitempty"`
-	Login  string `yaml:"login,omitempty"`
+type AccessInfo struct {
+	Teams         []AccessPermission `yaml:"teams"`
+	Collaborators []AccessPermission `yaml:"collaborators"`
 }
 
 type PermissionsInfo struct {
-	Teams []TeamPermission `yaml:"teams,omitempty"`
-	Users []UserPermission `yaml:"users,omitempty"`
+	RepoName string     `yaml:"repoName"`
+	Access   AccessInfo `yaml:"teams"`
 }
 
 type MembershipInfo struct {
-	Teams        []TeamInfo   `yaml:"teams,omitempty"`
-	Organization []MemberInfo `yaml:"organization,omitempty"`
+	Teams        []TeamInfo   `yaml:"teams"`
+	Organization []MemberInfo `yaml:"organization"`
 }
 
 // AccessConfig represents the overall structure of access-config.yaml.
 type AccessConfig struct {
-	Organization OrganizationInfo `yaml:"organization,omitempty"`
-	Repositories []RepositoryInfo `yaml:"repositories,omitempty"`
-	Memberships  MembershipInfo   `yaml:"memberships,omitempty"` // List of members with admin access
-	Permissions  PermissionsInfo  `yaml:"permissions,omitempty"`
+	Organization OrganizationInfo  `yaml:"organization"`
+	Repositories []RepositoryInfo  `yaml:"repositories"`
+	Memberships  MembershipInfo    `yaml:"memberships"` // List of members with admin access
+	Permissions  []PermissionsInfo `yaml:"permissions"`
 }
 
 type OrganizationQuery struct {
@@ -102,14 +106,13 @@ type RepoQuery struct {
 					Name       githubv4.String
 					URL        githubv4.String
 					Visibility githubv4.String
-					DatabaseId githubv4.Int
 				}
 			}
 			PageInfo struct {
 				EndCursor   githubv4.String
 				HasNextPage bool
 			}
-		} `graphql:"repositories(first: 100, after: $afterCursor, orderBy: {field:CREATED_AT,direction:ASC})"`
+		} `graphql:"repositories(first: 100, after: $afterCursor, orderBy: {field:NAME,direction:ASC})"`
 	} `graphql:"organization(login: $org)"`
 }
 

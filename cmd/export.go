@@ -101,7 +101,7 @@ func exportConfig(organizations []string) {
 			Organization: memberInfo,
 		}
 
-		permissionInfo, err := getPermissions(ctx, client, org, teamInfo)
+		permissionInfo, err := getPermissions(ctx, client, org, teamInfo, repoInfo)
 		if err != nil {
 			log.Printf("Failed to get organization info for %s: %v\n", org, err)
 			continue
@@ -159,14 +159,8 @@ func getRepos(ctx context.Context, client *githubv4.Client, organization string)
 			return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
 
-		// order query RepoQuery by repository name
-		sort.Slice(query.Organization.Repositories.Edges, func(i, j int) bool {
-			return string(query.Organization.Repositories.Edges[i].Node.DatabaseId) < string(query.Organization.Repositories.Edges[j].Node.DatabaseId)
-		})
-
 		for _, edge := range query.Organization.Repositories.Edges {
 			repoInfo := RepositoryInfo{
-				DatabaseID: int(edge.Node.DatabaseId),
 				Name:       string(edge.Node.Name),
 				URL:        string(edge.Node.URL),
 				Visibility: string(edge.Node.Visibility),
@@ -294,6 +288,10 @@ func getMembers(ctx context.Context, client *githubv4.Client, organization strin
 			return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
 
+		sort.Slice(query.Organization.MembersWithRole.Edges, func(i, j int) bool {
+			return string(query.Organization.MembersWithRole.Edges[i].Node.Login) < string(query.Organization.MembersWithRole.Edges[j].Node.Login)
+		})
+
 		for _, role := range query.Organization.MembersWithRole.Edges {
 
 			memberInfo := MemberInfo{
@@ -313,15 +311,15 @@ func getMembers(ctx context.Context, client *githubv4.Client, organization strin
 	return allMembers, nil
 }
 
-func getPermissions(ctx context.Context, client *githubv4.Client, organization string, teams []TeamInfo) (PermissionsInfo, error) {
-	var (
-		teamPermissions []TeamPermission
-		userPermissions []UserPermission
-	)
+func getPermissions(ctx context.Context, client *githubv4.Client, organization string, teams []TeamInfo, repos []RepositoryInfo) ([]PermissionsInfo, error) {
+	var permissions []PermissionsInfo
 	var (
 		repoCursor   *githubv4.String
 		collabCursor *githubv4.String
 	)
+
+	repoTeamMap := make(map[string][]AccessPermission)
+	repoUserMap := make(map[string][]AccessPermission)
 
 TeamPermissions:
 	for _, slug := range teams {
@@ -336,17 +334,13 @@ TeamPermissions:
 
 		err := client.Query(ctx, &query, variables)
 		if err != nil {
-			return PermissionsInfo{}, fmt.Errorf("error ejecutando la consulta: %v", err)
+			return permissions, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
 
 		for i, permission := range query.Organization.Team.Repositories.Nodes {
-			teamPermissionInfo := TeamPermission{
-				Repo:   string(permission.Name),
-				Access: string(query.Organization.Team.Repositories.Edges[i].Permission),
-				Slug:   slug.Name,
-			}
 
-			teamPermissions = append(teamPermissions, teamPermissionInfo)
+			repoTeamMap[string(permission.Name)] = append(repoTeamMap[string(permission.Name)], AccessPermission{Member: slug.Name, Access: string(query.Organization.Team.Repositories.Edges[i].Permission)})
+
 		}
 
 		if !query.Organization.Team.Repositories.PageInfo.HasNextPage {
@@ -368,7 +362,7 @@ RepoPermissions:
 
 		err := client.Query(ctx, &query, variables)
 		if err != nil {
-			return PermissionsInfo{}, fmt.Errorf("error ejecutando la consulta: %v", err)
+			return permissions, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
 
 		for _, repo := range query.Organization.Repositories.Edges {
@@ -377,13 +371,8 @@ RepoPermissions:
 			for {
 				for _, member := range repo.Node.Collaborators.Edges {
 
-					userPermissionInfo := UserPermission{
-						Repo:   string(repo.Node.Name),
-						Access: string(member.Permission),
-						Login:  string(member.Node.Login),
-					}
+					repoUserMap[string(repo.Node.Name)] = append(repoUserMap[string(repo.Node.Name)], AccessPermission{Member: string(member.Node.Login), Access: string(member.Permission)})
 
-					userPermissions = append(userPermissions, userPermissionInfo)
 				}
 
 				if !repo.Node.Collaborators.PageInfo.HasNextPage {
@@ -399,7 +388,7 @@ RepoPermissions:
 
 				err := client.Query(ctx, &query, variables)
 				if err != nil {
-					return PermissionsInfo{}, fmt.Errorf("error ejecutando la consulta: %v", err)
+					return permissions, fmt.Errorf("error ejecutando la consulta: %v", err)
 				}
 
 			}
@@ -413,22 +402,48 @@ RepoPermissions:
 		collabCursor = nil
 	}
 
-	return PermissionsInfo{Teams: teamPermissions, Users: userPermissions}, nil
+	for _, repo := range repos {
+		teamPermissions := repoTeamMap[repo.Name]
+		collaboratorPermissions := repoUserMap[repo.Name]
+
+		// order teams and collaborators por member
+		sort.Slice(teamPermissions, func(i, j int) bool {
+			return string(teamPermissions[i].Member) < string(teamPermissions[j].Member)
+		})
+		sort.Slice(collaboratorPermissions, func(i, j int) bool {
+			return string(collaboratorPermissions[i].Member) < string(collaboratorPermissions[j].Member)
+		})
+
+		repoperms := PermissionsInfo{
+			RepoName: repo.Name,
+			Access: AccessInfo{
+				Teams:         teamPermissions,
+				Collaborators: collaboratorPermissions,
+			},
+		}
+		permissions = append(permissions, repoperms)
+	}
+
+	sort.Slice(permissions, func(i, j int) bool {
+		return string(permissions[i].RepoName) < string(permissions[j].RepoName)
+	})
+
+	return permissions, nil
 }
 
 // LoadConfig loads the configuration from a YAML file.
-func LoadConfig(filename string) (*AccessConfig, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	var config AccessConfig
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
-}
+// func LoadConfig(filename string) (*AccessConfig, error) {
+// 	data, err := os.ReadFile(filename)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	var config AccessConfig
+// 	err = yaml.Unmarshal(data, &config)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &config, nil
+// }
 
 func SaveConfig(config *AccessConfig) error {
 
