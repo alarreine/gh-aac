@@ -161,11 +161,12 @@ func getRepos(ctx context.Context, client *githubv4.Client, organization string)
 
 		// order query RepoQuery by repository name
 		sort.Slice(query.Organization.Repositories.Edges, func(i, j int) bool {
-			return string(query.Organization.Repositories.Edges[i].Node.Name) < string(query.Organization.Repositories.Edges[j].Node.Name)
+			return string(query.Organization.Repositories.Edges[i].Node.DatabaseId) < string(query.Organization.Repositories.Edges[j].Node.DatabaseId)
 		})
 
 		for _, edge := range query.Organization.Repositories.Edges {
 			repoInfo := RepositoryInfo{
+				DatabaseID: int(edge.Node.DatabaseId),
 				Name:       string(edge.Node.Name),
 				URL:        string(edge.Node.URL),
 				Visibility: string(edge.Node.Visibility),

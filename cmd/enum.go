@@ -34,6 +34,7 @@ type OrganizationInfo struct {
 
 // RepositoryInfo represents basic information about a repository.
 type RepositoryInfo struct {
+	DatabaseID int    `yaml:"id,omitempty"`
 	Name       string `yaml:"name,omitempty"`
 	URL        string `yaml:"url,omitempty"`
 	Visibility string `yaml:"visibility,omitempty"`
@@ -101,6 +102,7 @@ type RepoQuery struct {
 					Name       githubv4.String
 					URL        githubv4.String
 					Visibility githubv4.String
+					DatabaseId githubv4.Int
 				}
 			}
 			PageInfo struct {
