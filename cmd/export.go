@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/shurcooL/githubv4"
@@ -157,6 +158,11 @@ func getRepos(ctx context.Context, client *githubv4.Client, organization string)
 		if err != nil {
 			return nil, fmt.Errorf("error ejecutando la consulta: %v", err)
 		}
+
+		// order query RepoQuery by repository name
+		sort.Slice(query.Organization.Repositories.Edges, func(i, j int) bool {
+			return string(query.Organization.Repositories.Edges[i].Node.Name) < string(query.Organization.Repositories.Edges[j].Node.Name)
+		})
 
 		for _, edge := range query.Organization.Repositories.Edges {
 			repoInfo := RepositoryInfo{
