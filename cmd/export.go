@@ -95,8 +95,10 @@ func exportConfig(organizations []string) {
 
 		accessConfig.Organization = orgInfo
 		accessConfig.Repositories = repoInfo
-		accessConfig.Teams = teamInfo
-		accessConfig.Members = memberInfo
+		accessConfig.Memberships = MembershipInfo{
+			Teams:        teamInfo,
+			Organization: memberInfo,
+		}
 
 		permissionInfo, err := getPermissions(ctx, client, org, teamInfo)
 		if err != nil {
@@ -158,8 +160,9 @@ func getRepos(ctx context.Context, client *githubv4.Client, organization string)
 
 		for _, edge := range query.Organization.Repositories.Edges {
 			repoInfo := RepositoryInfo{
-				Name: string(edge.Node.Name),
-				URL:  string(edge.Node.URL),
+				Name:       string(edge.Node.Name),
+				URL:        string(edge.Node.URL),
+				Visibility: string(edge.Node.Visibility),
 			}
 			allRepos = append(allRepos, repoInfo)
 		}

@@ -34,8 +34,9 @@ type OrganizationInfo struct {
 
 // RepositoryInfo represents basic information about a repository.
 type RepositoryInfo struct {
-	Name string `yaml:"name,omitempty"`
-	URL  string `yaml:"url,omitempty"`
+	Name       string `yaml:"name,omitempty"`
+	URL        string `yaml:"url,omitempty"`
+	Visibility string `yaml:"visibility,omitempty"`
 }
 
 // TeamInfo represents basic information about a team.
@@ -69,12 +70,16 @@ type PermissionsInfo struct {
 	Users []UserPermission `yaml:"users,omitempty"`
 }
 
+type MembershipInfo struct {
+	Teams        []TeamInfo   `yaml:"teams,omitempty"`
+	Organization []MemberInfo `yaml:"organization,omitempty"`
+}
+
 // AccessConfig represents the overall structure of access-config.yaml.
 type AccessConfig struct {
 	Organization OrganizationInfo `yaml:"organization,omitempty"`
 	Repositories []RepositoryInfo `yaml:"repositories,omitempty"`
-	Teams        []TeamInfo       `yaml:"teams,omitempty"`
-	Members      []MemberInfo     `yaml:"members,omitempty"`
+	Memberships  MembershipInfo   `yaml:"memberships,omitempty"` // List of members with admin access
 	Permissions  PermissionsInfo  `yaml:"permissions,omitempty"`
 }
 
@@ -93,8 +98,9 @@ type RepoQuery struct {
 		Repositories struct {
 			Edges []struct {
 				Node struct {
-					Name githubv4.String
-					URL  githubv4.String
+					Name       githubv4.String
+					URL        githubv4.String
+					Visibility githubv4.String
 				}
 			}
 			PageInfo struct {
