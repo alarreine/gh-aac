@@ -71,7 +71,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gh-aac.yaml)")
 
-	rootCmd.PersistentFlags().StringVarP(&endpoint, "endpoint", "e", "", "XW NO SALEEE.")
+	rootCmd.PersistentFlags().StringVarP(&endpoint, "endpoint", "e", "", "GitHub Enterprise endpoint. By default is https://github.com.")
 	viper.BindPFlag("endpoint", rootCmd.PersistentFlags().Lookup("endpoint"))
 
 	rootCmd.PersistentFlags().StringVarP(&org, "organization", "o", "", "Slug organization name. By default from conf file.")
